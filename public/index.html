@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>THE PROTECTOR</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&family=Rajdhani:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="bg-layers"></div>
+
+    <main>
+      <section id="authView" class="auth-view">
+        <div class="auth-card">
+          <h1>THE PROTECTOR</h1>
+          <p class="auth-subtitle">Real-time intelligence and disaster command dashboard</p>
+          <div class="auth-tabs">
+            <button id="loginTab" class="tab-btn active">Login</button>
+            <button id="registerTab" class="tab-btn">Register</button>
+          </div>
+
+          <form id="loginForm" class="auth-form">
+            <label>Username or Email</label>
+            <input id="loginIdentifier" required />
+            <label>Password</label>
+            <input id="loginPassword" type="password" required />
+            <button type="submit" class="btn-primary">Login</button>
+          </form>
+
+          <form id="registerForm" class="auth-form hidden">
+            <label>Username</label>
+            <input id="registerUsername" required />
+            <label>Email</label>
+            <input id="registerEmail" type="email" required />
+            <label>Password</label>
+            <input id="registerPassword" type="password" required minlength="6" />
+            <button type="submit" class="btn-primary">Create Account</button>
+          </form>
+
+          <p id="authStatus" class="status"></p>
+        </div>
+      </section>
+
+      <section id="appView" class="app-view hidden">
+        <header class="topbar">
+          <div>
+            <h1>THE PROTECTOR</h1>
+            <p id="welcomeText">Mission dashboard</p>
+          </div>
+          <div class="topbar-actions">
+            <button id="refreshAllBtn" class="btn-secondary">Refresh All</button>
+            <button id="logoutBtn" class="btn-danger">Logout</button>
+          </div>
+        </header>
+
+        <nav class="menu-strip">
+          <button class="menu-btn" data-target="section-overview">Dashboard</button>
+          <button class="menu-btn" data-target="section-flight">1. Flight</button>
+          <button class="menu-btn" data-target="section-isro">2. ISRO</button>
+          <button class="menu-btn" data-target="section-news">3. News</button>
+          <button class="menu-btn" data-target="section-disaster">4. Disaster</button>
+          <button class="menu-btn" data-target="section-secure">5. Secure Message</button>
+          <button id="moreMenuBtn" class="btn-secondary">More 6-9</button>
+        </nav>
+
+        <aside id="sideMenu" class="side-menu hidden">
+          <button class="menu-btn" data-target="section-relief">6. Relief</button>
+          <button class="menu-btn" data-target="section-cloud">7. Cloud Notes</button>
+          <button class="menu-btn" data-target="section-ai">8. Aryan AI</button>
+          <button class="menu-btn" data-target="section-war">9. Live War</button>
+        </aside>
+
+        <section id="section-overview" class="dashboard-section theme-overview">
+          <h2>All 9 Topics</h2>
+          <p class="section-intro">Use these tiles or menu bar navigation to jump directly to any module.</p>
+          <div class="card-grid quick-grid">
+            <button class="quick-card" data-target="section-flight"><strong>1</strong> Flight Live Map</button>
+            <button class="quick-card" data-target="section-isro"><strong>2</strong> ISRO Events</button>
+            <button class="quick-card" data-target="section-news"><strong>3</strong> Global + India News</button>
+            <button class="quick-card" data-target="section-disaster"><strong>4</strong> Disaster Markers</button>
+            <button class="quick-card" data-target="section-secure"><strong>5</strong> One-Time Secure Message</button>
+            <button class="quick-card" data-target="section-relief"><strong>6</strong> ReliefWeb Disasters</button>
+            <button class="quick-card" data-target="section-cloud"><strong>7</strong> Cloud Notes</button>
+            <button class="quick-card" data-target="section-ai"><strong>8</strong> Aryan AI</button>
+            <button class="quick-card" data-target="section-war"><strong>9</strong> Live War Map</button>
+          </div>
+        </section>
+
+        <section id="section-flight" class="dashboard-section theme-flight">
+          <div class="section-head">
+            <h2>1. Flight</h2>
+            <button id="reloadFlightBtn" class="btn-secondary">Reload Flight Data</button>
+          </div>
+          <div id="flightStats" class="stats-line"></div>
+          <div id="flightMap" class="map-panel"></div>
+          <div id="flightList" class="card-grid compact-grid"></div>
+        </section>
+
+        <section id="section-isro" class="dashboard-section theme-isro">
+          <div class="section-head">
+            <h2>2. ISRO</h2>
+            <button id="reloadIsroBtn" class="btn-secondary">Reload ISRO Data</button>
+          </div>
+          <div id="isroMap" class="map-panel"></div>
+          <div id="isroList" class="card-grid"></div>
+        </section>
+
+        <section id="section-news" class="dashboard-section theme-news">
+          <div class="section-head">
+            <h2>3. News</h2>
+            <button id="reloadNewsBtn" class="btn-secondary">Reload News</button>
+          </div>
+          <div class="train-track">
+            <div class="train">🚆 LIVE BLOG HIGHLIGHTS • MARKET MOVES • CONFLICT UPDATES •</div>
+          </div>
+          <h3>Global Headlines (15)</h3>
+          <div id="globalNews" class="card-grid"></div>
+          <h3>India Headlines (15)</h3>
+          <div id="indiaNews" class="card-grid"></div>
+          <h3>Video Stream (30)</h3>
+          <div id="videoNews" class="card-grid video-grid"></div>
+          <h3>Share Market News</h3>
+          <div id="marketNews" class="card-grid compact-grid"></div>
+          <h3>War News</h3>
+          <div id="warNews" class="card-grid compact-grid"></div>
+        </section>
+
+        <section id="section-disaster" class="dashboard-section theme-disaster">
+          <div class="section-head">
+            <h2>4. Disaster (NASA EONET)</h2>
+            <button id="reloadDisasterBtn" class="btn-secondary">Reload Disaster Feed</button>
+          </div>
+          <div class="filters">
+            <label><input type="checkbox" checked data-cat="Wildfires" class="disaster-filter" /> 🔥 Wildfire</label>
+            <label><input type="checkbox" checked data-cat="Floods" class="disaster-filter" /> 🌊 Flood</label>
+            <label><input type="checkbox" checked data-cat="Severe Storms" class="disaster-filter" /> ⛈️ Storm</label>
+            <label><input type="checkbox" checked data-cat="Earthquakes" class="disaster-filter" /> 🌍 Earthquake</label>
+          </div>
+          <div id="disasterMap" class="map-panel"></div>
+          <div id="disasterList" class="card-grid compact-grid"></div>
+        </section>
+
+        <section id="section-secure" class="dashboard-section theme-secure">
+          <h2>5. Secure Message (One-Time Code)</h2>
+          <div class="split">
+            <form id="createSecureForm" class="panel">
+              <h3>Create Secure Message</h3>
+              <label>Secret Message</label>
+              <textarea id="secureMessage" required rows="4"></textarea>
+              <label>Attach Image (optional)</label>
+              <input id="secureImage" type="file" accept="image/*" />
+              <label>Recipient Email (optional via SMTP)</label>
+              <input id="secureRecipient" type="email" placeholder="example@domain.com" />
+              <button class="btn-primary" type="submit">Generate 16-Digit Code</button>
+              <p id="secureCreateStatus" class="status"></p>
+            </form>
+
+            <form id="openSecureForm" class="panel">
+              <h3>Open Secure Message</h3>
+              <label>Enter 16-Digit Code</label>
+              <input id="secureCodeInput" minlength="16" maxlength="16" required />
+              <button class="btn-primary" type="submit">Open Once</button>
+              <p id="secureOpenStatus" class="status"></p>
+              <div id="secureOpenResult"></div>
+            </form>
+          </div>
+        </section>
+
+        <section id="section-relief" class="dashboard-section theme-relief">
+          <div class="section-head">
+            <h2>6. Relief</h2>
+            <button id="reloadReliefBtn" class="btn-secondary">Reload ReliefWeb</button>
+          </div>
+          <div id="reliefMap" class="map-panel"></div>
+          <div id="reliefList" class="card-grid compact-grid"></div>
+        </section>
+
+        <section id="section-cloud" class="dashboard-section theme-cloud">
+          <h2>7. Cloud Notes</h2>
+          <form id="notesForm" class="panel">
+            <label>Topic</label>
+            <input id="noteTitle" required />
+            <label>Content</label>
+            <textarea id="noteContent" rows="4" required></textarea>
+            <button class="btn-primary" type="submit">Save To Cloud</button>
+            <p id="notesStatus" class="status"></p>
+          </form>
+          <div id="notesList" class="card-grid"></div>
+        </section>
+
+        <section id="section-ai" class="dashboard-section theme-ai">
+          <h2>8. Aryan AI</h2>
+          <p class="section-intro">
+            Use the floating Aryan AI button at bottom-right. You can type or speak. Responses can also be spoken out loud.
+          </p>
+          <div class="panel">
+            <strong>Voice Controls:</strong>
+            <p>Click mic in Aryan AI panel, speak your prompt, and send. Browser speech recognition is used for voice input.</p>
+          </div>
+        </section>
+
+        <section id="section-war" class="dashboard-section theme-war">
+          <div class="section-head">
+            <h2>9. Live War</h2>
+            <button id="reloadWarBtn" class="btn-secondary">Reload War Feed</button>
+          </div>
+          <p>
+            Source:
+            <a id="warSourceLink" href="https://liveuamap.com" target="_blank" rel="noreferrer noopener">liveuamap.com</a>
+          </p>
+          <div id="warMap" class="map-panel"></div>
+          <div id="warList" class="card-grid compact-grid"></div>
+        </section>
+      </section>
+    </main>
+
+    <button id="aryanFab" class="aryan-fab">Aryan AI</button>
+    <section id="aryanPanel" class="aryan-panel hidden">
+      <div class="aryan-head">
+        <h3>Aryan AI</h3>
+        <button id="closeAryanPanel" class="btn-danger">X</button>
+      </div>
+      <div id="aryanMessages" class="aryan-messages"></div>
+      <div class="aryan-controls">
+        <input id="aryanInput" placeholder="Type your message..." />
+        <button id="aryanMicBtn" class="btn-secondary">Mic</button>
+        <button id="aryanSendBtn" class="btn-primary">Send</button>
+      </div>
+      <label class="speak-toggle">
+        <input type="checkbox" id="aryanSpeakToggle" checked />
+        Speak responses
+      </label>
+      <p id="aryanStatus" class="status"></p>
+    </section>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="/app.js"></script>
+  </body>
+</html>
