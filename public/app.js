@@ -270,7 +270,8 @@ async function loadFlight() {
   const data = await api('/api/feeds/flight');
   const markers = data.markers || [];
 
-  document.getElementById('flightStats').textContent = `Source: ${data.source || 'unknown'} | Live points: ${markers.length}`;
+  const feedNote = data.error ? ` | feed issue: ${data.error}` : '';
+  document.getElementById('flightStats').textContent = `Source: ${data.source || 'unknown'} | Live points: ${markers.length}${feedNote}`;
   renderMarkersOnMap('flightMap', markers, (m) => `<b>${escapeHtml(m.title)}</b><br/>${escapeHtml(m.subtitle || '')}`);
 
   const container = document.getElementById('flightList');
@@ -291,17 +292,25 @@ async function loadIsro() {
   const items = data.items || [];
   const mapMarkers = items.filter((i) => Number.isFinite(i.lat) && Number.isFinite(i.lng));
 
-  renderMarkersOnMap('isroMap', mapMarkers, (i) => `<b>${escapeHtml(i.title)}</b><br/>${escapeHtml(i.description || '')}`);
+  renderMarkersOnMap(
+    'isroMap',
+    mapMarkers,
+    (i) => `<b>${escapeHtml(i.title)}</b><br/>${escapeHtml(i.description || '')}<br/><small>${escapeHtml(i.source || '')}</small>`
+  );
 
   const container = document.getElementById('isroList');
   container.innerHTML = '';
   items.slice(0, 60).forEach((item) => {
+    const description = safeText(item.description);
+    const shortDescription = description.length > 260 ? `${description.slice(0, 260)}...` : description;
+    const publishedAt = item.publishedAt ? new Date(item.publishedAt).toLocaleString() : '';
     container.appendChild(
       card({
         title: item.title,
-        body: item.description,
+        body: shortDescription || 'ISRO mission and research update.',
         imageUrl: item.imageUrl || '',
-        meta: `Source: ${item.source || data.source || 'ISRO'}`
+        link: item.url || '',
+        meta: `Source: ${item.source || data.source || 'ISRO'}${publishedAt ? ` | ${publishedAt}` : ''}`
       })
     );
   });

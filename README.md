@@ -46,6 +46,7 @@ Open `http://localhost:10000`
 - Relief feed (`menu 6`) is integrated with ReliefWeb.
 - War feed (`menu 9`) scrapes marker-like coordinates from the configured LiveUAmap page and falls back gracefully if unavailable.
 - Flight/ISRO/News endpoints support configurable provider URLs and API keys through environment variables.
+- Flight module uses AirLabs live flight API when `AIRLABS_API_KEY` is set.
 
 ## Security
 

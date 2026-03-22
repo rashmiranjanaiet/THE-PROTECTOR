@@ -197,8 +197,70 @@ async function tryFetchFlightFromConfiguredApi() {
     .slice(0, 600);
 }
 
+async function tryFetchFlightFromAirlabs() {
+  const apiKey = process.env.AIRLABS_API_KEY || process.env.FLIGHT_API_KEY;
+  if (!apiKey) {
+    return [];
+  }
+
+  const apiUrl = process.env.AIRLABS_API_URL || 'https://airlabs.co/api/v9/flights';
+  const url = new URL(apiUrl);
+  if (!url.searchParams.get('api_key')) {
+    url.searchParams.set('api_key', apiKey);
+  }
+
+  const payload = await fetchJson(
+    url.toString(),
+    {
+      headers: {
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        accept: 'application/json'
+      }
+    },
+    45000
+  );
+
+  const rows = safeArray(payload.response || payload.data || payload.results || payload.items || payload);
+  return rows
+    .map((item, idx) => {
+      const lat = asNumber(item.lat ?? item.latitude);
+      const lng = asNumber(item.lng ?? item.lon ?? item.longitude);
+      if (lat === null || lng === null) {
+        return null;
+      }
+
+      const dep = item.dep_iata || item.dep_icao || 'UNK';
+      const arr = item.arr_iata || item.arr_icao || 'UNK';
+      const speed = asNumber(item.speed);
+      const alt = asNumber(item.alt);
+
+      return {
+        id: item.hex || item.flight_icao || item.flight_iata || `airlabs-${idx}`,
+        lat,
+        lng,
+        title: item.flight_iata || item.flight_icao || item.reg_number || 'Flight',
+        subtitle: `${dep} -> ${arr} | ${item.status || 'unknown'}${speed !== null ? ` | ${Math.round(speed)} km/h` : ''}${
+          alt !== null ? ` | Alt ${Math.round(alt)} m` : ''
+        }`,
+        source: 'airlabs',
+        raw: item
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 1200);
+}
+
 async function tryFetchFlightFromOpenSky() {
-  const payload = await fetchJson('https://opensky-network.org/api/states/all', {}, 20000);
+  const payload = await fetchJson(
+    'https://opensky-network.org/api/states/all',
+    {
+      headers: {
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        accept: 'application/json'
+      }
+    },
+    40000
+  );
   const states = safeArray(payload.states).slice(0, 600);
 
   return states
@@ -222,7 +284,55 @@ async function tryFetchFlightFromOpenSky() {
     .filter(Boolean);
 }
 
+function buildStaticFlightFallback() {
+  const points = [
+    { code: 'DEL', lat: 28.5562, lng: 77.1 },
+    { code: 'BOM', lat: 19.0896, lng: 72.8656 },
+    { code: 'BLR', lat: 13.1986, lng: 77.7066 },
+    { code: 'DXB', lat: 25.2532, lng: 55.3657 },
+    { code: 'DOH', lat: 25.2731, lng: 51.6081 },
+    { code: 'SIN', lat: 1.3644, lng: 103.9915 },
+    { code: 'BKK', lat: 13.69, lng: 100.75 },
+    { code: 'HKG', lat: 22.308, lng: 113.9185 },
+    { code: 'NRT', lat: 35.7719, lng: 140.3929 },
+    { code: 'ICN', lat: 37.4602, lng: 126.4407 },
+    { code: 'LHR', lat: 51.47, lng: -0.4543 },
+    { code: 'CDG', lat: 49.0097, lng: 2.5479 },
+    { code: 'FRA', lat: 50.0379, lng: 8.5622 },
+    { code: 'AMS', lat: 52.31, lng: 4.7683 },
+    { code: 'IST', lat: 41.2753, lng: 28.7519 },
+    { code: 'JFK', lat: 40.6413, lng: -73.7781 },
+    { code: 'EWR', lat: 40.6895, lng: -74.1745 },
+    { code: 'ORD', lat: 41.9742, lng: -87.9073 },
+    { code: 'LAX', lat: 33.9416, lng: -118.4085 },
+    { code: 'SFO', lat: 37.6213, lng: -122.379 },
+    { code: 'ATL', lat: 33.6407, lng: -84.4277 },
+    { code: 'YYZ', lat: 43.6777, lng: -79.6248 },
+    { code: 'SYD', lat: -33.9399, lng: 151.1753 },
+    { code: 'MEL', lat: -37.6733, lng: 144.8433 },
+    { code: 'JNB', lat: -26.1337, lng: 28.242 }
+  ];
+
+  return points.map((point, idx) => ({
+    id: `sim-${idx}`,
+    lat: point.lat,
+    lng: point.lng,
+    title: `Flight Hub ${point.code}`,
+    subtitle: 'Backup data mode (live feed temporarily unavailable)',
+    source: 'fallback-simulated'
+  }));
+}
+
 async function getFlightFeed() {
+  try {
+    const airlabs = await tryFetchFlightFromAirlabs();
+    if (airlabs.length > 0) {
+      return { source: 'airlabs', markers: airlabs };
+    }
+  } catch {
+    // fallback below
+  }
+
   try {
     const configured = await tryFetchFlightFromConfiguredApi();
     if (configured.length > 0) {
@@ -236,13 +346,133 @@ async function getFlightFeed() {
     const opensky = await tryFetchFlightFromOpenSky();
     return { source: 'opensky', markers: opensky };
   } catch (error) {
-    return { source: 'none', markers: [], error: error.message };
+    return { source: 'fallback-simulated', markers: buildStaticFlightFallback(), error: error.message };
   }
+}
+
+const ISRO_WIKI_TOPICS = [
+  'Indian Space Research Organisation',
+  'Chandrayaan-3',
+  'Aditya-L1',
+  'Gaganyaan',
+  'Mars Orbiter Mission',
+  'Satish Dhawan Space Centre'
+];
+
+const ISRO_TOPIC_COORDS = {
+  'Indian Space Research Organisation': { lat: 13.0344, lng: 77.5667 },
+  'Chandrayaan-3': { lat: 13.7199, lng: 80.2304 },
+  'Aditya-L1': { lat: 13.7199, lng: 80.2304 },
+  Gaganyaan: { lat: 13.7199, lng: 80.2304 },
+  'Mars Orbiter Mission': { lat: 13.7199, lng: 80.2304 },
+  'Satish Dhawan Space Centre': { lat: 13.7199, lng: 80.2304 }
+};
+
+function normalizeConfiguredIsroItems(rawItems = []) {
+  return rawItems.slice(0, 100).map((item, idx) => {
+    const marker = normalizeCoordinateItem(item, idx, 'isro');
+    return {
+      id: marker?.id || `isro-${idx}`,
+      title: item.title || item.name || `ISRO Event ${idx + 1}`,
+      description: item.description || item.summary || item.details || '',
+      imageUrl: item.image || item.imageUrl || item.thumbnail || item.photo || null,
+      lat: marker?.lat || null,
+      lng: marker?.lng || null,
+      url: item.url || item.link || item.source || '',
+      publishedAt: item.publishedAt || item.date || null,
+      source: 'isro-api',
+      raw: item
+    };
+  });
+}
+
+async function fetchIsroWikiSummaries() {
+  const requests = ISRO_WIKI_TOPICS.map(async (topic) => {
+    const payload = await fetchJson(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topic)}`,
+      {
+        headers: {
+          'user-agent': 'THE-PROTECTOR/1.0 (https://the-protector)'
+        }
+      },
+      20000
+    );
+
+    return {
+      id: `wiki-${topic.replaceAll(' ', '-').toLowerCase()}`,
+      title: payload.title || topic,
+      description: payload.extract || 'ISRO mission information.',
+      imageUrl: payload.thumbnail?.source || payload.originalimage?.source || null,
+      lat: ISRO_TOPIC_COORDS[topic]?.lat || null,
+      lng: ISRO_TOPIC_COORDS[topic]?.lng || null,
+      url: payload.content_urls?.desktop?.page || '',
+      publishedAt: null,
+      source: 'wikipedia'
+    };
+  });
+
+  const settled = await Promise.allSettled(requests);
+  return settled
+    .filter((result) => result.status === 'fulfilled')
+    .map((result) => result.value);
+}
+
+async function fetchSpaceflightIsroArticles() {
+  const payload = await fetchJson('https://api.spaceflightnewsapi.net/v4/articles/?search=ISRO&limit=18', {}, 25000);
+  const results = safeArray(payload.results);
+
+  return results.map((item, idx) => ({
+    id: `spaceflight-${item.id || idx}`,
+    title: item.title || `ISRO Article ${idx + 1}`,
+    description: item.summary || item.news_site || 'ISRO update.',
+    imageUrl: item.image_url || null,
+    lat: null,
+    lng: null,
+    url: item.url || '',
+    publishedAt: item.published_at || null,
+    source: item.news_site || 'Spaceflight News'
+  }));
+}
+
+function buildIsroCenters() {
+  return [
+    {
+      id: 'isro-center-sdsc',
+      title: 'Satish Dhawan Space Centre (SDSC), Sriharikota',
+      description: 'India primary launch site for PSLV, GSLV and upcoming human missions.',
+      imageUrl: 'https://www.isro.gov.in/media_isro/image/Launchers/PSLV/PSLVC53/PSLVC53_2.jpg',
+      lat: 13.7199,
+      lng: 80.2304,
+      url: 'https://www.isro.gov.in/SDSC_SHAR.html',
+      source: 'isro-center'
+    },
+    {
+      id: 'isro-center-ursc',
+      title: 'U R Rao Satellite Centre (URSC), Bengaluru',
+      description: 'Key ISRO center for satellite design, integration and testing.',
+      imageUrl: 'https://www.isro.gov.in/media_isro/image/index/Gallery/VikramS/3.jpg',
+      lat: 13.0344,
+      lng: 77.5667,
+      url: 'https://www.isro.gov.in/URSC.html',
+      source: 'isro-center'
+    },
+    {
+      id: 'isro-center-vssc',
+      title: 'Vikram Sarabhai Space Centre (VSSC), Thiruvananthapuram',
+      description: 'Lead center for launch vehicle research and development.',
+      imageUrl: 'https://www.isro.gov.in/media_isro/image/Launchers/GSLVmk3/GSLVMkIII.jpg',
+      lat: 8.5241,
+      lng: 76.9366,
+      url: 'https://www.isro.gov.in/VSSC.html',
+      source: 'isro-center'
+    }
+  ];
 }
 
 async function getIsroFeed() {
   const apiUrl = process.env.ISRO_API_URL;
   const apiKey = process.env.ISRO_API_KEY;
+  let configuredItems = [];
 
   if (apiUrl) {
     try {
@@ -250,60 +480,63 @@ async function getIsroFeed() {
       if (apiKey && !url.searchParams.get('api_key') && !url.searchParams.get('access_key')) {
         url.searchParams.set('api_key', apiKey);
       }
-      const payload = await fetchJson(url.toString());
+      const payload = await fetchJson(
+        url.toString(),
+        apiKey
+          ? {
+              headers: {
+                'x-api-key': apiKey,
+                authorization: `Bearer ${apiKey}`
+              }
+            }
+          : {},
+        25000
+      );
       const rawItems = safeArray(payload.data || payload.results || payload.items || payload.events || payload);
-
-      const items = rawItems.slice(0, 100).map((item, idx) => {
-        const marker = normalizeCoordinateItem(item, idx, 'isro');
-        return {
-          id: marker?.id || `isro-${idx}`,
-          title: item.title || item.name || `ISRO Event ${idx + 1}`,
-          description: item.description || item.summary || '',
-          imageUrl: item.image || item.imageUrl || item.thumbnail || null,
-          lat: marker?.lat || null,
-          lng: marker?.lng || null,
-          source: 'isro-api',
-          raw: item
-        };
-      });
-
-      return { source: 'configured', items };
+      configuredItems = normalizeConfiguredIsroItems(rawItems);
     } catch {
       // fallback to open feeds below
     }
   }
 
   try {
-    const spacecrafts = await fetchJson('https://isro.vercel.app/api/spacecrafts');
-    const list = safeArray(spacecrafts.spacecrafts).slice(0, 20).map((name, idx) => ({
-      id: `isro-spacecraft-${idx}`,
-      title: name,
-      description: 'ISRO spacecraft catalog item.',
-      imageUrl: null,
-      lat: null,
-      lng: null,
-      source: 'isro-public'
-    }));
+    const [spacecrafts, wikiSummaries, articleItems] = await Promise.allSettled([
+      fetchJson('https://isro.vercel.app/api/spacecrafts', {}, 20000),
+      fetchIsroWikiSummaries(),
+      fetchSpaceflightIsroArticles()
+    ]);
 
-    const eonet = await fetchJson('https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=30');
-    const disasterItems = safeArray(eonet.events).map((event, idx) => {
-      const geo = safeArray(event.geometry).at(-1);
-      const lng = asNumber(geo?.coordinates?.[0]);
-      const lat = asNumber(geo?.coordinates?.[1]);
-      return {
-        id: event.id || `isro-disaster-${idx}`,
-        title: event.title,
-        description: `${event.categories?.map((c) => c.title).join(', ') || 'Disaster event'} (NASA/EONET feed)`,
-        imageUrl: null,
-        lat,
-        lng,
-        source: 'nasa-eonet'
-      };
-    });
+    const spacecraftItems =
+      spacecrafts.status === 'fulfilled'
+        ? safeArray(spacecrafts.value.spacecrafts).slice(0, 20).map((name, idx) => ({
+            id: `isro-spacecraft-${idx}`,
+            title: name,
+            description: 'ISRO spacecraft catalog entry.',
+            imageUrl: null,
+            lat: null,
+            lng: null,
+            url: '',
+            publishedAt: null,
+            source: 'isro-public'
+          }))
+        : [];
 
-    return { source: 'fallback', items: [...list, ...disasterItems] };
+    const wikiItems = wikiSummaries.status === 'fulfilled' ? wikiSummaries.value : [];
+    const articleList = articleItems.status === 'fulfilled' ? articleItems.value : [];
+    const centers = buildIsroCenters();
+
+    const items = uniqueBy(
+      [...configuredItems, ...centers, ...wikiItems, ...articleList, ...spacecraftItems],
+      (item) => `${item.title || ''}|${item.source || ''}|${item.url || ''}`
+    ).slice(0, 100);
+
+    return { source: configuredItems.length ? 'configured+enhanced' : 'enhanced', items };
   } catch (error) {
-    return { source: 'none', items: [], error: error.message };
+    return {
+      source: configuredItems.length ? 'configured' : 'none',
+      items: configuredItems,
+      error: error.message
+    };
   }
 }
 

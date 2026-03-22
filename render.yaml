@@ -18,6 +18,10 @@ services:
         sync: false
       - key: HF_CHAT_MODEL
         value: meta-llama/Llama-3.1-8B-Instruct
+      - key: AIRLABS_API_KEY
+        sync: false
+      - key: AIRLABS_API_URL
+        value: https://airlabs.co/api/v9/flights
       - key: FLIGHT_API_KEY
         sync: false
       - key: FLIGHT_API_URL
